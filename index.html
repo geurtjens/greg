@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREG</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --accent: #e8e0d0;
+    --blue:   #3a6fd8;
+    --red:    #c0392b;
+    --green:  #27ae60;
+    --grey:   #999999;
+    --cell:   80px;
+    --gap:    3px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 16px 40px;
+    user-select: none;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 14px;
+    color: var(--accent);
+    text-align: center;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .subtitle {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #444;
+    text-align: center;
+    margin-bottom: 22px;
+  }
+
+  /* toolbar */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid #444;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .btn:hover { background: #1c1c1c; border-color: #888; }
+  .btn.primary { border-color: var(--accent); background: var(--accent); color: #0f0f0f; }
+  .btn.primary:hover { background: #ccc; }
+  .level-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: #444;
+    padding: 6px 14px;
+    border: 1px solid #222;
+  }
+
+  /* ── puzzle wrapper: grid + arrows ── */
+  .puzzle-outer {
+    display: grid;
+    /* col: arrow | grid | arrow */
+    grid-template-columns: 36px auto 36px;
+    /* row: arrow | grid | arrow */
+    grid-template-rows: 36px auto 36px;
+    gap: 6px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  /* top arrow row */
+  .arrows-top {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    gap: calc(var(--gap) + var(--cell) - 36px + 36px); /* align with columns */
+    gap: 3px;
+  }
+
+  /* bottom arrow row */
+  .arrows-bottom {
+    grid-column: 2;
+    grid-row: 3;
+    display: flex;
+    gap: 3px;
+  }
+
+  /* left arrow col */
+  .arrows-left {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* right arrow col */
+  .arrows-right {
+    grid-column: 3;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* the actual grid */
+  .grid {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(4, var(--cell));
+    grid-template-rows: repeat(4, var(--cell));
+    gap: var(--gap);
+    background: #111;
+    padding: var(--gap);
+    border: 1px solid #1e1e1e;
+  }
+
+  /* arrow buttons */
+  .arrow-btn {
+    width: 36px;
+    height: var(--cell);
+    background: #141414;
+    border: 1px solid #252525;
+    color: #555;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .arrows-top .arrow-btn,
+  .arrows-bottom .arrow-btn {
+    width: var(--cell);
+    height: 36px;
+  }
+  .arrow-btn:hover {
+    background: #1e1e1e;
+    border-color: #555;
+    color: var(--accent);
+  }
+  .arrow-btn:active {
+    background: #252525;
+    transform: scale(0.94);
+  }
+
+  /* cells */
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    background: #0d0d0d;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #1a1a1a;
+    transition: transform 0.08s;
+  }
+  .cell svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* move counter */
+  .stats {
+    margin-top: 18px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #444;
+    display: flex;
+    gap: 24px;
+  }
+  .stats b { color: var(--accent); }
+
+  /* ── arrow flash ── */
+  .arrow-btn.flash {
+    background: var(--accent) !important;
+    color: #0f0f0f !important;
+    border-color: var(--accent) !important;
+    transform: scale(1.15);
+    transition: all 0.05s;
+  }
+
+  /* ── preview banner ── */
+  .preview-banner {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #c0392b;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  /* win */
+  .win-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    animation: fadeIn 0.35s ease;
+  }
+  .win-overlay.visible { display: flex; }
+  .win-overlay h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    letter-spacing: 12px;
+    animation: pop 0.4s ease;
+  }
+  .win-overlay p { font-size: 11px; letter-spacing: 3px; color: #555; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes pop { from{transform:scale(0.4);opacity:0} to{transform:scale(1);opacity:1} }
+
+  /* rules modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    padding: 32px 36px;
+    max-width: 440px;
+    width: 92%;
+  }
+  .modal h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 5px;
+    margin-bottom: 14px;
+  }
+  .modal p, .modal li {
+    font-size: 12px;
+    line-height: 2;
+    color: #999;
+  }
+  .modal ul { padding-left: 16px; margin-bottom: 12px; }
+  .modal .close-btn { margin-top: 18px; display: block; width: 100%; }
+</style>
+</head>
+<body>
+
+<h1>GREG</h1>
+<p class="subtitle">Sliding Triangle Puzzle</p>
+
+<div class="toolbar">
+  <button class="btn primary" id="btnStart">Shuffle &amp; Play</button>
+  <select id="levelSelect" style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;background:#141414;color:#e8e0d0;border:1px solid #444;padding:7px 12px;cursor:pointer;text-transform:uppercase;">
+    <option value="0">Level 1</option>
+    <option value="1">Level 2</option>
+    <option value="2">Level 3</option>
+    <option value="3">Level 4</option>
+    <option value="4">Level 5</option>
+  </select>
+</div>
+
+<div class="preview-banner" id="previewBanner">◆ Target Pattern ◆</div>
+
+<div class="puzzle-outer" id="puzzleOuter">
+  <!-- top arrows (col shifts: push down) -->
+  <div class="arrows-top" id="arrowsTop"></div>
+  <!-- left arrows (row shifts: push right) -->
+  <div class="arrows-left" id="arrowsLeft"></div>
+  <!-- THE GRID -->
+  <div class="grid" id="grid"></div>
+  <!-- right arrows (row shifts: push left) -->
+  <div class="arrows-right" id="arrowsRight"></div>
+  <!-- bottom arrows (col shifts: push up) -->
+  <div class="arrows-bottom" id="arrowsBottom"></div>
+</div>
+
+<div class="stats">
+  <span>Moves: <b id="statMoves">0</b></span>
+  <span>Level: <b id="statLevel">1</b></span>
+</div>
+
+<!-- Win -->
+<div class="win-overlay" id="winScreen">
+  <h2>SOLVED!</h2>
+  <p>Puzzle Complete</p>
+  <button class="btn primary" id="btnNextLevel" style="margin-top:14px;padding:12px 32px;font-size:12px">Next Level →</button>
+  <button class="btn" id="btnWinReplay" style="margin-top:6px">Play Again</button>
+</div>
+
+
+<script>
+// ─────────────────────────────────────────
+// TILE: { dir: 'tl'|'tr'|'bl'|'br', colour: 'blue'|'red'|'green'|'grey' }
+// ─────────────────────────────────────────
+
+const COLOURS = { blue:'#3a6fd8', red:'#c0392b', green:'#27ae60', black:'#cccccc', grey:'#0d0d0d' };
+
+// Rotation 0 = BL, 1 = TL, 2 = TR, 3 = BR  (each 90° CW step)
+const ROT_PTS = [
+  `0,0 0,1 1,1`,    // 0 = BL: bottom-left right-angle triangle
+  `0,0 1,0 0,1`,    // 1 = TL: top-left
+  `0,0 1,0 1,1`,    // 2 = TR: top-right
+  `1,0 1,1 0,1`,    // 3 = BR: bottom-right
+];
+
+function tileSVG(tile, size=80) {
+  if (!tile) return '';
+  const s = size, col = COLOURS[tile.colour] || '#555';
+  const pts = ROT_PTS[tile.rot].split(' ')
+    .map(p => p.split(',').map(v => parseFloat(v) * s).join(','))
+    .join(' ');
+  return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${s}" height="${s}" fill="#0d0d0d"/>
+    <polygon points="${pts}" fill="${col}" opacity="0.93"/>
+  </svg>`;
+}
+
+// ─────────────────────────────────────────
+// LEVELS — 4×4 arrays of tiles (row-major)
+// Reading from sketch image 2:
+// Row 0: tl-green | tr-red / bl-blue... 
+// Encoding what can be seen in the sketch as best as possible.
+// Each cell: one triangle direction + colour
+// ─────────────────────────────────────────
+// rot: 0=BL, 1=TL, 2=TR, 3=BR
+// grey tiles are the "blank" background tiles
+const LEVELS = [
+  // Level 1 — 1 black diamond centred
+  [
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+    {rot:0,colour:'grey'},{rot:3,colour:'black'},{rot:0,colour:'black'},{rot:0,colour:'grey'},
+    {rot:0,colour:'grey'},{rot:2,colour:'black'},{rot:1,colour:'black'},{rot:0,colour:'grey'},
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+  ],
+  // Level 2 — 2 black diamonds side by side
+  [
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+    {rot:3,colour:'black'},{rot:0,colour:'black'},{rot:3,colour:'black'},{rot:0,colour:'black'},
+    {rot:2,colour:'black'},{rot:1,colour:'black'},{rot:2,colour:'black'},{rot:1,colour:'black'},
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+  ],
+  // Level 3 — red + blue diamonds side by side
+  [
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+    {rot:3,colour:'red'},{rot:0,colour:'red'},{rot:3,colour:'blue'},{rot:0,colour:'blue'},
+    {rot:2,colour:'red'},{rot:1,colour:'red'},{rot:2,colour:'blue'},{rot:1,colour:'blue'},
+    {rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},{rot:0,colour:'grey'},
+  ],
+  // Level 4 — 4 black diamonds filling the grid
+  [
+    {rot:3,colour:'black'},{rot:0,colour:'black'},{rot:3,colour:'black'},{rot:0,colour:'black'},
+    {rot:2,colour:'black'},{rot:1,colour:'black'},{rot:2,colour:'black'},{rot:1,colour:'black'},
+    {rot:3,colour:'black'},{rot:0,colour:'black'},{rot:3,colour:'black'},{rot:0,colour:'black'},
+    {rot:2,colour:'black'},{rot:1,colour:'black'},{rot:2,colour:'black'},{rot:1,colour:'black'},
+  ],
+  // Level 5 — 4 coloured diamonds: red TL, black TR, blue BL, green BR
+  [
+    {rot:3,colour:'red'},{rot:0,colour:'red'},{rot:3,colour:'black'},{rot:0,colour:'black'},
+    {rot:2,colour:'red'},{rot:1,colour:'red'},{rot:2,colour:'black'},{rot:1,colour:'black'},
+    {rot:3,colour:'blue'},{rot:0,colour:'blue'},{rot:3,colour:'green'},{rot:0,colour:'green'},
+    {rot:2,colour:'blue'},{rot:1,colour:'blue'},{rot:2,colour:'green'},{rot:1,colour:'green'},
+  ],
+];
+
+// ─────────────────────────────────────────
+// GAME STATE
+// ─────────────────────────────────────────
+let state = {
+  level: 0,
+  solution: [],   // 16 tiles — the target
+  board: [],      // 16 tiles — current
+  moves: 0,
+  phase: 'preview',  // 'preview' | 'playing'
+};
+
+function deepCopy(arr) { return arr.map(t => ({...t})); }
+
+function shuffle(arr) {
+  // Fisher-Yates
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ─────────────────────────────────────────
+// SLIDING OPERATIONS
+// ─────────────────────────────────────────
+
+// Shift a row left: tile at col 0 wraps to col 3
+function shiftRowLeft(row) {
+  const b = state.board;
+  const base = row * 4;
+  const first = b[base];
+  b[base]   = b[base+1];
+  b[base+1] = b[base+2];
+  b[base+2] = b[base+3];
+  b[base+3] = first;
+  state.moves++;
+}
+
+// Shift a row right: tile at col 3 wraps to col 0
+function shiftRowRight(row) {
+  const b = state.board;
+  const base = row * 4;
+  const last = b[base+3];
+  b[base+3] = b[base+2];
+  b[base+2] = b[base+1];
+  b[base+1] = b[base];
+  b[base]   = last;
+  state.moves++;
+}
+
+// Shift a column up: tile at row 0 wraps to row 3
+function shiftColUp(col) {
+  const b = state.board;
+  const first = b[col];
+  b[col]    = b[col+4];
+  b[col+4]  = b[col+8];
+  b[col+8]  = b[col+12];
+  b[col+12] = first;
+  state.moves++;
+}
+
+// Shift a column down: tile at row 3 wraps to row 0
+function shiftColDown(col) {
+  const b = state.board;
+  const last = b[col+12];
+  b[col+12] = b[col+8];
+  b[col+8]  = b[col+4];
+  b[col+4]  = b[col];
+  b[col]    = last;
+  state.moves++;
+}
+
+// ─────────────────────────────────────────
+// WIN CHECK
+// ─────────────────────────────────────────
+function checkWin() {
+  const won = state.board.every((t, i) =>
+    t.rot === state.solution[i].rot && t.colour === state.solution[i].colour
+  );
+  if (won) setTimeout(() => document.getElementById('winScreen').classList.add('visible'), 300);
+}
+
+// ─────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────
+function render() {
+  // grid cells
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = tileSVG(state.board[i], 80);
+    grid.appendChild(cell);
+  }
+
+  // stats
+  document.getElementById('statMoves').textContent = state.moves;
+  document.getElementById('statLevel').textContent = state.level + 1;
+  document.getElementById('levelSelect').value = state.level;
+
+  // preview banner
+  const banner = document.getElementById('previewBanner');
+  banner.style.display = state.phase === 'preview' ? 'block' : 'none';
+
+  // start button label
+  document.getElementById('btnStart').textContent =
+    state.phase === 'preview' ? 'Shuffle & Play' : 'Reset';
+}
+
+// ─────────────────────────────────────────
+// BUILD ARROWS
+// ─────────────────────────────────────────
+function buildArrows() {
+  const CELL = 80, GAP = 3;
+
+  // Top arrows: push column DOWN (▼)
+  const top = document.getElementById('arrowsTop');
+  top.style.gap = GAP + 'px';
+  top.innerHTML = '';
+  for (let c = 0; c < 4; c++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn';
+    btn.style.width = CELL + 'px';
+    btn.style.height = '36px';
+    btn.textContent = '▲';
+    btn.id = `bot-${c}`;
+    btn.title = `Shift column ${c+1} up`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftColUp(c); render(); checkWin(); }});
+    top.appendChild(btn);
+  }
+
+  // Bottom arrows: push column UP (▲)
+  const bot = document.getElementById('arrowsBottom');
+  bot.style.gap = GAP + 'px';
+  bot.innerHTML = '';
+  for (let c = 0; c < 4; c++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn';
+    btn.style.width = CELL + 'px';
+    btn.style.height = '36px';
+    btn.textContent = '▼';
+    btn.id = `top-${c}`;
+    btn.title = `Shift column ${c+1} down`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftColDown(c); render(); checkWin(); }});
+    bot.appendChild(btn);
+  }
+
+  // Left arrows: push row RIGHT (▶)
+  const left = document.getElementById('arrowsLeft');
+  left.style.gap = GAP + 'px';
+  left.innerHTML = '';
+  for (let r = 0; r < 4; r++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn';
+    btn.style.width = '36px';
+    btn.style.height = CELL + 'px';
+    btn.textContent = '◀';
+    btn.id = `right-${r}`;
+    btn.title = `Shift row ${r+1} left`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftRowLeft(r); render(); checkWin(); }});
+    left.appendChild(btn);
+  }
+
+  // Right arrows: push row LEFT (◀)
+  const right = document.getElementById('arrowsRight');
+  right.style.gap = GAP + 'px';
+  right.innerHTML = '';
+  for (let r = 0; r < 4; r++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn';
+    btn.style.width = '36px';
+    btn.style.height = CELL + 'px';
+    btn.textContent = '▶';
+    btn.id = `left-${r}`;
+    btn.title = `Shift row ${r+1} right`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftRowRight(r); render(); checkWin(); }});
+    right.appendChild(btn);
+  }
+}
+
+// ─────────────────────────────────────────
+// PHASE TRANSITIONS
+// ─────────────────────────────────────────
+function previewLevel(levelIdx) {
+  state.level = levelIdx % LEVELS.length;
+  state.solution = deepCopy(LEVELS[state.level]);
+  state.board = deepCopy(state.solution);
+  state.moves = 0;
+  state.phase = 'preview';
+  document.getElementById('winScreen').classList.remove('visible');
+  render();
+}
+
+async function startPlaying() {
+  state.board = deepCopy(state.solution);
+  state.moves = 0;
+  state.phase = 'playing';
+  render();
+
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('levelSelect').disabled = true;
+
+  // Each op: { fn, btnId }
+  const ops = [
+    { fn: () => shiftColUp(0),    btnId: 'bot-0' },
+    { fn: () => shiftColUp(1),    btnId: 'bot-1' },
+    { fn: () => shiftColUp(2),    btnId: 'bot-2' },
+    { fn: () => shiftColUp(3),    btnId: 'bot-3' },
+    { fn: () => shiftColDown(0),  btnId: 'top-0' },
+    { fn: () => shiftColDown(1),  btnId: 'top-1' },
+    { fn: () => shiftColDown(2),  btnId: 'top-2' },
+    { fn: () => shiftColDown(3),  btnId: 'top-3' },
+    { fn: () => shiftRowLeft(0),  btnId: 'right-0' },
+    { fn: () => shiftRowLeft(1),  btnId: 'right-1' },
+    { fn: () => shiftRowLeft(2),  btnId: 'right-2' },
+    { fn: () => shiftRowLeft(3),  btnId: 'right-3' },
+    { fn: () => shiftRowRight(0), btnId: 'left-0' },
+    { fn: () => shiftRowRight(1), btnId: 'left-1' },
+    { fn: () => shiftRowRight(2), btnId: 'left-2' },
+    { fn: () => shiftRowRight(3), btnId: 'left-3' },
+  ];
+
+  for (let i = 0; i < 20; i++) {
+    const op = ops[Math.floor(Math.random() * ops.length)];
+
+    // Flash the button
+    const btn = document.getElementById(op.btnId);
+    if (btn) {
+      btn.classList.add('flash');
+      setTimeout(() => btn.classList.remove('flash'), 200);
+    }
+
+    op.fn();
+    state.moves = 0;
+    render();
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('levelSelect').disabled = false;
+}
+
+function isSolved() {
+  return state.board.every((t, i) =>
+    t.rot === state.solution[i].rot && t.colour === state.solution[i].colour
+  );
+}
+
+// ─────────────────────────────────────────
+// BUTTON WIRING
+// ─────────────────────────────────────────
+document.getElementById('levelSelect').addEventListener('change', (e) => {
+  previewLevel(parseInt(e.target.value));
+});
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (state.phase === 'preview') startPlaying();
+  else previewLevel(state.level);
+});
+document.getElementById('btnNextLevel').addEventListener('click', () =>
+  previewLevel((state.level + 1) % LEVELS.length));
+document.getElementById('btnWinReplay').addEventListener('click', () =>
+  previewLevel(state.level));
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+buildArrows();
+previewLevel(0);
+</script>
+</body>
+</html>
