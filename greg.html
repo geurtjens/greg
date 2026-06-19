@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREG</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --accent: #e8e0d0;
+    --blue:   #3a6fd8;
+    --red:    #c0392b;
+    --green:  #27ae60;
+    --grey:   #999999;
+    --cell:   80px;
+    --gap:    3px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 16px 40px;
+    user-select: none;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 14px;
+    color: var(--accent);
+    text-align: center;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .subtitle {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #444;
+    text-align: center;
+    margin-bottom: 22px;
+  }
+
+  /* toolbar */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid #444;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .btn:hover { background: #1c1c1c; border-color: #888; }
+  .btn.primary { border-color: var(--accent); background: var(--accent); color: #0f0f0f; }
+  .btn.primary:hover { background: #ccc; }
+  .level-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: #444;
+    padding: 6px 14px;
+    border: 1px solid #222;
+  }
+
+  /* ── puzzle wrapper: grid + arrows ── */
+  .puzzle-outer {
+    display: grid;
+    /* col: arrow | grid | arrow */
+    grid-template-columns: 36px auto 36px;
+    /* row: arrow | grid | arrow */
+    grid-template-rows: 36px auto 36px;
+    gap: 6px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  /* top arrow row */
+  .arrows-top {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    gap: calc(var(--gap) + var(--cell) - 36px + 36px); /* align with columns */
+    gap: 3px;
+  }
+
+  /* bottom arrow row */
+  .arrows-bottom {
+    grid-column: 2;
+    grid-row: 3;
+    display: flex;
+    gap: 3px;
+  }
+
+  /* left arrow col */
+  .arrows-left {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* right arrow col */
+  .arrows-right {
+    grid-column: 3;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* the actual grid */
+  .grid {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(4, var(--cell));
+    grid-template-rows: repeat(4, var(--cell));
+    /* overridden dynamically by JS */
+    gap: var(--gap);
+    background: #111;
+    padding: var(--gap);
+    border: 1px solid #1e1e1e;
+  }
+
+  /* arrow buttons */
+  .arrow-btn {
+    width: 36px;
+    height: var(--cell);
+    background: #141414;
+    border: 1px solid #252525;
+    color: #555;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .arrows-top .arrow-btn,
+  .arrows-bottom .arrow-btn {
+    width: var(--cell);
+    height: 36px;
+  }
+  .arrow-btn:hover {
+    background: #1e1e1e;
+    border-color: #555;
+    color: var(--accent);
+  }
+  .arrow-btn:active {
+    background: #252525;
+    transform: scale(0.94);
+  }
+
+  /* cells */
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    background: #0d0d0d;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #1a1a1a;
+    transition: transform 0.08s;
+  }
+  .cell svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* move counter */
+  .stats {
+    margin-top: 18px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #444;
+    display: flex;
+    gap: 24px;
+  }
+  .stats b { color: var(--accent); }
+
+  /* ── arrow flash ── */
+  .arrow-btn.flash {
+    background: var(--accent) !important;
+    color: #0f0f0f !important;
+    border-color: var(--accent) !important;
+    transform: scale(1.15);
+    transition: all 0.05s;
+  }
+
+  /* ── preview banner ── */
+  .preview-banner {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #c0392b;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  /* ── edit dropdown ── */
+  .dropdown-item {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #222;
+    color: #888;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: all 0.12s;
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: #1e1e1e; color: var(--accent); }
+  #btnHamburger.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── drawer tabs ── */
+  .drawer-tab {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #222;
+    color: #444;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .drawer-tab:hover { color: #888; background: #161616; }
+  .drawer-tab.active { color: var(--accent); background: #161616; }
+  .drawer-panel { width: 100%; }
+  #btnHamburger.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── admin panels ── */
+  .admin-panel {
+    width: 100%;
+    max-width: 700px;
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .admin-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 5px;
+    margin-bottom: 6px;
+  }
+  .admin-sub {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #555;
+    line-height: 1.8;
+  }
+  .edit-legend { min-width: 160px; }
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #666;
+    padding: 4px 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.1s;
+  }
+  .palette-item.active { border-color: var(--accent); color: var(--accent); }
+  .palette-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+  .rot-item {
+    width: 36px; height: 36px;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; letter-spacing: 1px; color: #555;
+    transition: all 0.1s;
+  }
+  .rot-item.active { border-color: var(--accent); color: var(--accent); }
+
+  /* win */
+  .win-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    animation: fadeIn 0.35s ease;
+  }
+  .win-overlay.visible { display: flex; }
+  .win-overlay h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    letter-spacing: 12px;
+    animation: pop 0.4s ease;
+  }
+  .win-overlay p { font-size: 11px; letter-spacing: 3px; color: #555; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes pop { from{transform:scale(0.4);opacity:0} to{transform:scale(1);opacity:1} }
+
+  /* rules modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    padding: 32px 36px;
+    max-width: 440px;
+    width: 92%;
+  }
+  .modal h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 5px;
+    margin-bottom: 14px;
+  }
+  .modal p, .modal li {
+    font-size: 12px;
+    line-height: 2;
+    color: #999;
+  }
+  .modal ul { padding-left: 16px; margin-bottom: 12px; }
+  .modal .close-btn { margin-top: 18px; display: block; width: 100%; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:2px">
+  <h1 style="margin-bottom:0">GREG</h1>
+  <button class="btn" id="btnHamburger" style="font-size:11px;letter-spacing:2px;padding:6px 14px">&#9776;</button>
+</div>
+<p class="subtitle">Sliding Triangle Puzzle</p>
+
+<div class="toolbar">
+  <button class="btn primary" id="btnStart">Shuffle &amp; Play</button>
+  <canvas id="miniPreview" width="48" height="48" style="border:1px solid #2a2a2a;image-rendering:pixelated;flex-shrink:0;"></canvas>
+  <select id="levelSelect" style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;background:#141414;color:#e8e0d0;border:1px solid #444;padding:7px 12px;cursor:pointer;text-transform:uppercase;">
+    <option value="0">Level 1</option>
+    <option value="1">Level 2</option>
+    <option value="2">Level 3</option>
+    <option value="3">Level 4</option>
+    <option value="4">Level 5</option>
+  </select>
+</div>
+
+<div class="preview-banner" id="previewBanner">◆ Target Pattern ◆</div>
+
+<div class="puzzle-outer" id="puzzleOuter">
+  <!-- top arrows (col shifts: push down) -->
+  <div class="arrows-top" id="arrowsTop"></div>
+  <!-- left arrows (row shifts: push right) -->
+  <div class="arrows-left" id="arrowsLeft"></div>
+  <!-- THE GRID -->
+  <div class="grid" id="grid"></div>
+  <!-- right arrows (row shifts: push left) -->
+  <div class="arrows-right" id="arrowsRight"></div>
+  <!-- bottom arrows (col shifts: push up) -->
+  <div class="arrows-bottom" id="arrowsBottom"></div>
+</div>
+
+<div class="stats">
+  <span>Moves: <b id="statMoves">0</b></span>
+  <span>Level: <b id="statLevel">1</b></span>
+</div>
+
+
+<!-- Admin Drawer -->
+<div id="adminDrawer" style="display:none;width:100%;max-width:700px;margin-bottom:24px;border:1px solid #222;background:#111;">
+
+  <!-- Drawer tabs -->
+  <div style="display:flex;border-bottom:1px solid #222;">
+    <button class="drawer-tab active" data-drawer="edit">Edit</button>
+    <button class="drawer-tab" data-drawer="export">Export</button>
+    <button class="drawer-tab" data-drawer="import">Import</button>
+  </div>
+
+  <!-- Edit panel -->
+  <div id="drawer-edit" class="drawer-panel" style="padding:16px;">
+    <div class="toolbar" style="margin-bottom:16px;flex-wrap:wrap;">
+      <select id="editLevelSelect" style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;background:#141414;color:#e8e0d0;border:1px solid #444;padding:7px 12px;cursor:pointer;">
+        <option value="0">Level 1</option>
+        <option value="1">Level 2</option>
+        <option value="2">Level 3</option>
+        <option value="3">Level 4</option>
+        <option value="4">Level 5</option>
+      </select>
+      <button class="btn" id="btnAddLevel">+ Add Level</button>
+      <button class="btn" id="btnDeleteLevel" style="border-color:#c0392b;color:#c0392b">Delete Level</button>
+    </div>
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center">
+      <div class="grid" id="editGrid" style="cursor:pointer"></div>
+      <div class="edit-legend">
+        <div class="admin-sub" style="margin-bottom:8px">Click = set colour+rotation</div>
+        <div class="admin-sub" style="margin-bottom:16px">Shift+click = cycle rotation only</div>
+        <div id="editPalette" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div style="margin-top:16px" class="admin-sub">Rotation</div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="editRotations"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export panel -->
+  <div id="drawer-export" class="drawer-panel" style="display:none;padding:16px;">
+    <p class="admin-sub" style="margin-bottom:12px">Copy this JSON to save or share your level data.</p>
+    <button class="btn primary" id="btnCopy" style="margin-bottom:12px">Copy to Clipboard</button>
+    <div id="copyConfirm" style="display:none;font-size:10px;letter-spacing:2px;color:#27ae60;margin-bottom:12px">✓ Copied!</div>
+    <textarea id="exportText" readonly style="width:100%;height:240px;background:#0a0a0a;color:#888;border:1px solid #222;font-family:'Space Mono',monospace;font-size:10px;padding:12px;resize:vertical;line-height:1.6"></textarea>
+  </div>
+
+  <!-- Import panel -->
+  <div id="drawer-import" class="drawer-panel" style="display:none;padding:16px;">
+    <p class="admin-sub" style="margin-bottom:12px">Paste level JSON below and press Load.</p>
+    <textarea id="importText" placeholder="Paste JSON here..." style="width:100%;height:240px;background:#0a0a0a;color:#888;border:1px solid #222;font-family:'Space Mono',monospace;font-size:10px;padding:12px;resize:vertical;line-height:1.6;margin-bottom:12px"></textarea>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn primary" id="btnImport">Load</button>
+      <div id="importMsg" style="font-size:10px;letter-spacing:2px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Win -->
+<div class="win-overlay" id="winScreen">
+  <h2>SOLVED!</h2>
+  <p>Puzzle Complete</p>
+  <button class="btn primary" id="btnNextLevel" style="margin-top:14px;padding:12px 32px;font-size:12px">Next Level →</button>
+  <button class="btn" id="btnWinReplay" style="margin-top:6px">Play Again</button>
+</div>
+
+
+<script>
+// ─────────────────────────────────────────
+// TILE: { dir: 'tl'|'tr'|'bl'|'br', colour: 'blue'|'red'|'green'|'grey' }
+// ─────────────────────────────────────────
+
+const COLOURS = { blue:'#3a6fd8', red:'#c0392b', green:'#27ae60', white:'#cccccc', black:'#0d0d0d' };
+
+// ─────────────────────────────────────────
+// ADMIN FLAG — set to false to hide admin tabs
+// ─────────────────────────────────────────
+const ADMIN = true;
+
+// Rotation 0 = BL, 1 = TL, 2 = TR, 3 = BR  (each 90° CW step)
+const ROT_PTS = [
+  `0,0 0,1 1,1`,    // 0 = BL: bottom-left right-angle triangle
+  `0,0 1,0 0,1`,    // 1 = TL: top-left
+  `0,0 1,0 1,1`,    // 2 = TR: top-right
+  `1,0 1,1 0,1`,    // 3 = BR: bottom-right
+];
+
+function tileSVG(tile, size=80) {
+  if (!tile) return '';
+  const s = size, col = COLOURS[tile.colour] || '#555';
+  const pts = ROT_PTS[tile.rot].split(' ')
+    .map(p => p.split(',').map(v => parseFloat(v) * s).join(','))
+    .join(' ');
+  const bgCol = COLOURS[tile.bg] !== undefined ? COLOURS[tile.bg] : '#0d0d0d';
+  return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${s}" height="${s}" fill="${bgCol}"/>
+    <polygon points="${pts}" fill="${col}" opacity="0.93"/>
+  </svg>`;
+}
+
+// ─────────────────────────────────────────
+// LEVELS — 4×4 arrays of tiles (row-major)
+// Reading from sketch image 2:
+// Row 0: tl-green | tr-red / bl-blue... 
+// Encoding what can be seen in the sketch as best as possible.
+// Each cell: one triangle direction + colour
+// ─────────────────────────────────────────
+// rot: 0=BL, 1=TL, 2=TR, 3=BR
+// grey tiles are the "blank" background tiles
+const LEVELS = [
+  [
+    {rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:0,colour:'black',bg:'black'},{rot:3,colour:'blue',bg:'black'},{rot:0,colour:'blue',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:0,colour:'black',bg:'black'},{rot:2,colour:'blue',bg:'black'},{rot:1,colour:'blue',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},
+  ],
+  [
+    {rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:3,colour:'blue',bg:'black'},{rot:0,colour:'blue',bg:'black'},{rot:3,colour:'red',bg:'black'},{rot:0,colour:'red',bg:'black'},
+    {rot:2,colour:'blue',bg:'black'},{rot:1,colour:'blue',bg:'black'},{rot:2,colour:'red',bg:'black'},{rot:1,colour:'red',bg:'black'},
+    {rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},{rot:0,colour:'black',bg:'black'},
+  ],
+  [
+    {rot:0,colour:'black',bg:'black'},{rot:3,colour:'green',bg:'black'},{rot:0,colour:'green',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:0,colour:'black',bg:'black'},{rot:2,colour:'green',bg:'black'},{rot:1,colour:'green',bg:'black'},{rot:0,colour:'black',bg:'black'},
+    {rot:3,colour:'red',bg:'black'},{rot:0,colour:'red',bg:'black'},{rot:3,colour:'blue',bg:'black'},{rot:0,colour:'blue',bg:'black'},
+    {rot:2,colour:'red',bg:'black'},{rot:1,colour:'red',bg:'black'},{rot:2,colour:'blue',bg:'black'},{rot:1,colour:'blue',bg:'black'},
+  ],
+  [
+    {rot:3,colour:'red',bg:'black'},{rot:0,colour:'red',bg:'black'},{rot:3,colour:'white',bg:'black'},{rot:0,colour:'white',bg:'black'},
+    {rot:2,colour:'red',bg:'black'},{rot:1,colour:'red',bg:'black'},{rot:2,colour:'white',bg:'black'},{rot:1,colour:'white',bg:'black'},
+    {rot:3,colour:'blue',bg:'black'},{rot:0,colour:'blue',bg:'black'},{rot:3,colour:'green',bg:'black'},{rot:0,colour:'green',bg:'black'},
+    {rot:2,colour:'blue',bg:'black'},{rot:1,colour:'blue',bg:'black'},{rot:2,colour:'green',bg:'black'},{rot:1,colour:'green',bg:'black'},
+  ],
+  [
+    {rot:2,colour:'blue',bg:'white'},{rot:0,colour:'blue',bg:'green'},{rot:3,colour:'red',bg:'green'},{rot:1,colour:'red',bg:'white'},
+    {rot:3,colour:'blue',bg:'white'},{rot:1,colour:'blue',bg:'black'},{rot:2,colour:'red',bg:'black'},{rot:0,colour:'red',bg:'white'},
+    {rot:2,colour:'blue',bg:'white'},{rot:0,colour:'blue',bg:'black'},{rot:3,colour:'red',bg:'black'},{rot:1,colour:'red',bg:'white'},
+    {rot:3,colour:'blue',bg:'white'},{rot:1,colour:'blue',bg:'green'},{rot:2,colour:'red',bg:'green'},{rot:0,colour:'red',bg:'white'},
+  ]
+];
+
+// ─────────────────────────────────────────
+// GAME STATE
+// ─────────────────────────────────────────
+let state = {
+  level: 0,
+  solution: [],   // 16 tiles — the target
+  board: [],      // 16 tiles — current
+  moves: 0,
+  phase: 'preview',  // 'preview' | 'playing'
+};
+
+function deepCopy(arr) { return arr.map(t => ({ rot: t.rot, colour: t.colour, bg: t.bg || 'black' })); }
+
+function shuffle(arr) {
+  // Fisher-Yates
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ─────────────────────────────────────────
+// SLIDING OPERATIONS
+// ─────────────────────────────────────────
+
+// Shift a row left: tile at col 0 wraps to col 3
+function shiftRowLeft(row) {
+  const b = state.board;
+  const base = row * 4;
+  const first = b[base];
+  b[base]   = b[base+1];
+  b[base+1] = b[base+2];
+  b[base+2] = b[base+3];
+  b[base+3] = first;
+  state.moves++;
+}
+
+// Shift a row right: tile at col 3 wraps to col 0
+function shiftRowRight(row) {
+  const b = state.board;
+  const base = row * 4;
+  const last = b[base+3];
+  b[base+3] = b[base+2];
+  b[base+2] = b[base+1];
+  b[base+1] = b[base];
+  b[base]   = last;
+  state.moves++;
+}
+
+// Shift a column up: tile at row 0 wraps to row 3
+function shiftColUp(col) {
+  const b = state.board;
+  const first = b[col];
+  b[col]    = b[col+4];
+  b[col+4]  = b[col+8];
+  b[col+8]  = b[col+12];
+  b[col+12] = first;
+  state.moves++;
+}
+
+// Shift a column down: tile at row 3 wraps to row 0
+function shiftColDown(col) {
+  const b = state.board;
+  const last = b[col+12];
+  b[col+12] = b[col+8];
+  b[col+8]  = b[col+4];
+  b[col+4]  = b[col];
+  b[col]    = last;
+  state.moves++;
+}
+
+// ─────────────────────────────────────────
+// WIN CHECK
+// ─────────────────────────────────────────
+function checkWin() {
+  const won = state.board.every((t, i) =>
+    t.rot === state.solution[i].rot &&
+    t.colour === state.solution[i].colour &&
+    (t.bg || 'black') === (state.solution[i].bg || 'black')
+  );
+  if (won) setTimeout(() => document.getElementById('winScreen').classList.add('visible'), 300);
+}
+
+// ─────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────
+function renderMiniPreview() {
+  const canvas = document.getElementById('miniPreview');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const COLS = 4, ROWS = 4;
+  const cw = W / COLS, ch = H / ROWS;
+  ctx.clearRect(0, 0, W, H);
+
+  const CMAP = { blue:'#3a6fd8', red:'#c0392b', green:'#27ae60', white:'#cccccc', black:'#0d0d0d' };
+  const ROT = [
+    [[0,1],[0,0],[1,1]],  // 0=BL
+    [[0,0],[1,0],[0,1]],  // 1=TL
+    [[0,0],[1,0],[1,1]],  // 2=TR
+    [[1,0],[1,1],[0,1]],  // 3=BR
+  ];
+
+  state.solution.forEach((tile, i) => {
+    const col = i % COLS, row = Math.floor(i / COLS);
+    const x = col * cw, y = row * ch;
+    // background
+    ctx.fillStyle = CMAP[tile.bg] || '#0d0d0d';
+    ctx.fillRect(x, y, cw, ch);
+    // triangle
+    const pts = ROT[tile.rot];
+    ctx.beginPath();
+    ctx.moveTo(x + pts[0][0]*cw, y + pts[0][1]*ch);
+    ctx.lineTo(x + pts[1][0]*cw, y + pts[1][1]*ch);
+    ctx.lineTo(x + pts[2][0]*cw, y + pts[2][1]*ch);
+    ctx.closePath();
+    ctx.fillStyle = CMAP[tile.colour] || '#555';
+    ctx.fill();
+  });
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = tileSVG(state.board[i], 80);
+    grid.appendChild(cell);
+  }
+  document.getElementById('statMoves').textContent = state.moves;
+  document.getElementById('statLevel').textContent = state.level + 1;
+  document.getElementById('levelSelect').value = state.level;
+  const banner = document.getElementById('previewBanner');
+  banner.style.display = state.phase === 'preview' ? 'block' : 'none';
+  document.getElementById('btnStart').textContent =
+    state.phase === 'preview' ? 'Shuffle & Play' : 'Reset';
+}
+
+// ─────────────────────────────────────────
+// BUILD ARROWS
+// ─────────────────────────────────────────
+function buildArrows() {
+  const CELL = 80, GAP = 3;
+  const top = document.getElementById('arrowsTop');
+  top.style.gap = GAP + 'px'; top.innerHTML = '';
+  for (let c = 0; c < 4; c++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn'; btn.style.width = CELL+'px'; btn.style.height = '36px';
+    btn.textContent = '▲'; btn.id = `bot-${c}`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftColUp(c); render(); checkWin(); }});
+    top.appendChild(btn);
+  }
+  const bot = document.getElementById('arrowsBottom');
+  bot.style.gap = GAP + 'px'; bot.innerHTML = '';
+  for (let c = 0; c < 4; c++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn'; btn.style.width = CELL+'px'; btn.style.height = '36px';
+    btn.textContent = '▼'; btn.id = `top-${c}`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftColDown(c); render(); checkWin(); }});
+    bot.appendChild(btn);
+  }
+  const left = document.getElementById('arrowsLeft');
+  left.style.gap = GAP + 'px'; left.innerHTML = '';
+  for (let r = 0; r < 4; r++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn'; btn.style.width = '36px'; btn.style.height = CELL+'px';
+    btn.textContent = '◀'; btn.id = `right-${r}`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftRowLeft(r); render(); checkWin(); }});
+    left.appendChild(btn);
+  }
+  const right = document.getElementById('arrowsRight');
+  right.style.gap = GAP + 'px'; right.innerHTML = '';
+  for (let r = 0; r < 4; r++) {
+    const btn = document.createElement('button');
+    btn.className = 'arrow-btn'; btn.style.width = '36px'; btn.style.height = CELL+'px';
+    btn.textContent = '▶'; btn.id = `left-${r}`;
+    btn.addEventListener('click', () => { if (state.phase==='playing') { shiftRowRight(r); render(); checkWin(); }});
+    right.appendChild(btn);
+  }
+}
+
+// ─────────────────────────────────────────
+// PHASE TRANSITIONS
+// ─────────────────────────────────────────
+function previewLevel(levelIdx) {
+  state.level = levelIdx % LEVELS.length;
+  state.solution = deepCopy(LEVELS[state.level]);
+  state.board = deepCopy(state.solution);
+  state.moves = 0;
+  state.phase = 'preview';
+  document.getElementById('winScreen').classList.remove('visible');
+  render();
+  renderMiniPreview();
+}
+
+async function startPlaying() {
+  state.board = deepCopy(state.solution);
+  state.moves = 0;
+  state.phase = 'playing';
+  render();
+
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('levelSelect').disabled = true;
+
+  const ops = [];
+  for (let c = 0; c < 4; c++) {
+    ops.push({ fn: () => shiftColUp(c),   btnId: `bot-${c}` });
+    ops.push({ fn: () => shiftColDown(c), btnId: `top-${c}` });
+  }
+  for (let r = 0; r < 4; r++) {
+    ops.push({ fn: () => shiftRowLeft(r),  btnId: `right-${r}` });
+    ops.push({ fn: () => shiftRowRight(r), btnId: `left-${r}` });
+  }
+
+  for (let i = 0; i < 20; i++) {
+    const op = ops[Math.floor(Math.random() * ops.length)];
+
+    // Flash the button
+    const btn = document.getElementById(op.btnId);
+    if (btn) {
+      btn.classList.add('flash');
+      setTimeout(() => btn.classList.remove('flash'), 200);
+    }
+
+    op.fn();
+    state.moves = 0;
+    render();
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('levelSelect').disabled = false;
+}
+
+function isSolved() {
+  return state.board.every((t, i) =>
+    t.rot === state.solution[i].rot &&
+    t.colour === state.solution[i].colour &&
+    (t.bg || 'black') === (state.solution[i].bg || 'black')
+  );
+}
+
+// ─────────────────────────────────────────
+// BUTTON WIRING
+// ─────────────────────────────────────────
+document.getElementById('levelSelect').addEventListener('change', (e) => {
+  previewLevel(parseInt(e.target.value));
+});
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (state.phase === 'preview') startPlaying();
+  else previewLevel(state.level);
+});
+document.getElementById('btnNextLevel').addEventListener('click', () =>
+  previewLevel((state.level + 1) % LEVELS.length));
+document.getElementById('btnWinReplay').addEventListener('click', () =>
+  previewLevel(state.level));
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+buildArrows();
+previewLevel(0);
+
+// ─────────────────────────────────────────
+// ADMIN DRAWER
+// ─────────────────────────────────────────
+const adminDrawer = document.getElementById('adminDrawer');
+
+// ── Hamburger — simple toggle of admin drawer ──
+document.getElementById('btnHamburger').addEventListener('click', () => {
+  const open = adminDrawer.style.display === 'block';
+  adminDrawer.style.display = open ? 'none' : 'block';
+  document.getElementById('btnHamburger').classList.toggle('active', !open);
+  if (!open) refreshEditGrid();
+});
+
+// ── Drawer internal tab switching ──
+document.querySelectorAll('.drawer-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.drawer-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.drawer-panel').forEach(p => p.style.display = 'none');
+    btn.classList.add('active');
+    const panel = document.getElementById('drawer-' + btn.dataset.drawer);
+    if (panel) panel.style.display = 'block';
+    if (btn.dataset.drawer === 'export') refreshExport();
+    if (btn.dataset.drawer === 'edit') refreshEditGrid();
+  });
+});
+
+// ── EXPORT ──
+function refreshExport() {
+  const normalised = LEVELS.map(level =>
+    level.map(t => ({ rot: t.rot, colour: t.colour, bg: t.bg || 'black' }))
+  );
+  document.getElementById('exportText').value = JSON.stringify(normalised, null, 2);
+}
+document.getElementById('btnCopy').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('exportText').value).then(() => {
+    const msg = document.getElementById('copyConfirm');
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  });
+});
+
+// ── IMPORT ──
+document.getElementById('btnImport').addEventListener('click', () => {
+  const msg = document.getElementById('importMsg');
+  try {
+    const parsed = JSON.parse(document.getElementById('importText').value);
+    if (!Array.isArray(parsed)) throw new Error('Must be an array of levels');
+    LEVELS.length = 0;
+    parsed.forEach(l => LEVELS.push(l));
+    rebuildLevelSelects();
+    previewLevel(0);
+    msg.style.color = '#27ae60';
+    msg.textContent = '✓ Loaded ' + LEVELS.length + ' levels';
+    setTimeout(() => msg.textContent = '', 3000);
+  } catch(e) {
+    msg.style.color = '#c0392b';
+    msg.textContent = '✗ ' + e.message;
+  }
+});
+
+function rebuildLevelSelects() {
+  ['levelSelect','editLevelSelect'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = LEVELS.map((_, i) => `<option value="${i}">Level ${i+1}</option>`).join('');
+  });
+}
+
+// ── EDIT ──
+let editLevel = 0;
+let editSelectedColour = 'white';
+let editSelectedBg = 'black';
+let editSelectedRot = 0;
+const COLOUR_LIST = ['white','black','blue','red','green'];
+
+function refreshEditGrid() {
+  const grid = document.getElementById('editGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const lvl = LEVELS[editLevel];
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.cursor = 'pointer';
+    cell.innerHTML = tileSVG(lvl[i], 80);
+    cell.addEventListener('click', (e) => {
+      if (e.shiftKey) {
+        lvl[i] = { ...lvl[i], rot: (lvl[i].rot + 1) % 4 };
+      } else {
+        lvl[i] = { rot: editSelectedRot, colour: editSelectedColour, bg: editSelectedBg };
+      }
+      cell.innerHTML = tileSVG(lvl[i], 80);
+    });
+    grid.appendChild(cell);
+  }
+
+  const palette = document.getElementById('editPalette');
+  palette.innerHTML = '';
+  // Foreground
+  const fgLabel = document.createElement('div');
+  fgLabel.className = 'admin-sub';
+  fgLabel.style.marginBottom = '4px';
+  fgLabel.textContent = 'Foreground';
+  palette.appendChild(fgLabel);
+  COLOUR_LIST.forEach(col => {
+    const item = document.createElement('div');
+    item.className = 'palette-item fg-item' + (col === editSelectedColour ? ' active' : '');
+    item.innerHTML = `<div class="palette-dot" style="background:${COLOURS[col]||'#555'};border:1px solid #333"></div>${col}`;
+    item.addEventListener('click', () => {
+      editSelectedColour = col;
+      document.querySelectorAll('.fg-item').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+    });
+    palette.appendChild(item);
+  });
+  // Background
+  const bgLabel = document.createElement('div');
+  bgLabel.className = 'admin-sub';
+  bgLabel.style.margin = '12px 0 4px';
+  bgLabel.textContent = 'Background';
+  palette.appendChild(bgLabel);
+  COLOUR_LIST.forEach(col => {
+    const item = document.createElement('div');
+    item.className = 'palette-item bg-item' + (col === editSelectedBg ? ' active' : '');
+    item.innerHTML = `<div class="palette-dot" style="background:${COLOURS[col]||'#555'};border:1px solid #333"></div>${col}`;
+    item.addEventListener('click', () => {
+      editSelectedBg = col;
+      document.querySelectorAll('.bg-item').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+    });
+    palette.appendChild(item);
+  });
+
+  const rotDiv = document.getElementById('editRotations');
+  rotDiv.innerHTML = '';
+  ['BL','TL','TR','BR'].forEach((label, r) => {
+    const item = document.createElement('div');
+    item.className = 'rot-item' + (r === editSelectedRot ? ' active' : '');
+    item.textContent = label;
+    item.addEventListener('click', () => {
+      editSelectedRot = r;
+      document.querySelectorAll('.rot-item').forEach(x => x.classList.remove('active'));
+      item.classList.add('active');
+    });
+    rotDiv.appendChild(item);
+  });
+}
+
+document.getElementById('editLevelSelect').addEventListener('change', (e) => {
+  editLevel = parseInt(e.target.value);
+  refreshEditGrid();
+});
+
+document.getElementById('btnAddLevel').addEventListener('click', () => {
+  LEVELS.push(Array(16).fill(null).map(() => ({rot:0, colour:'black', bg:'black'})));
+  rebuildLevelSelects();
+  editLevel = LEVELS.length - 1;
+  document.getElementById('editLevelSelect').value = editLevel;
+  refreshEditGrid();
+});
+document.getElementById('btnDeleteLevel').addEventListener('click', () => {
+  if (LEVELS.length <= 1) return;
+  LEVELS.splice(editLevel, 1);
+  editLevel = Math.max(0, editLevel - 1);
+  rebuildLevelSelects();
+  document.getElementById('editLevelSelect').value = editLevel;
+  refreshEditGrid();
+  previewLevel(0);
+});
+</script>
+</body>
+</html>
